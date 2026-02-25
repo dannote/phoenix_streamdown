@@ -102,4 +102,123 @@
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
+/* Markdown prose styles for PhoenixStreamdown */
+.psd-prose {
+  line-height: 1.7;
+  font-size: 0.9375rem;
+}
+
+.psd-prose h1,
+.psd-prose h2,
+.psd-prose h3 {
+  font-weight: 600;
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
+
+.psd-prose h1 { font-size: 1.5em; }
+.psd-prose h2 { font-size: 1.25em; }
+.psd-prose h3 { font-size: 1.1em; }
+
+.psd-prose h1:first-child,
+.psd-prose h2:first-child,
+.psd-prose h3:first-child {
+  margin-top: 0;
+}
+
+.psd-prose p {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+}
+
+.psd-prose p:first-child { margin-top: 0; }
+.psd-prose p:last-child { margin-bottom: 0; }
+
+.psd-prose ul,
+.psd-prose ol {
+  padding-left: 1.5em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.psd-prose ul { list-style-type: disc; }
+.psd-prose ol { list-style-type: decimal; }
+.psd-prose li { margin-top: 0.25em; }
+
+.psd-prose strong { font-weight: 600; }
+
+.psd-prose code:not(pre code) {
+  font-size: 0.85em;
+  padding: 0.15em 0.4em;
+  border-radius: 0.25rem;
+  background: oklch(from currentColor l c h / 0.08);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.psd-prose pre {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+  padding: 1em;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.6;
+  background: #282c34;
+}
+
+.psd-prose pre code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.psd-prose blockquote {
+  border-left: 3px solid oklch(from currentColor l c h / 0.2);
+  padding-left: 1em;
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+  opacity: 0.85;
+}
+
+.psd-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+  font-size: 0.875em;
+}
+
+.psd-prose th,
+.psd-prose td {
+  padding: 0.5em 0.75em;
+  border: 1px solid oklch(from currentColor l c h / 0.15);
+  text-align: left;
+}
+
+.psd-prose th {
+  font-weight: 600;
+  background: oklch(from currentColor l c h / 0.04);
+}
+
+.psd-prose hr {
+  border: none;
+  border-top: 1px solid oklch(from currentColor l c h / 0.15);
+  margin: 1.5em 0;
+}
+
+.psd-prose a {
+  color: oklch(0.6 0.2 260);
+  text-decoration: underline;
+  text-decoration-color: oklch(0.6 0.2 260 / 0.3);
+  text-underline-offset: 2px;
+}
+
+.psd-prose a:hover {
+  text-decoration-color: oklch(0.6 0.2 260);
+}
+
+.psd-prose img {
+  max-width: 100%;
+  border-radius: 0.5rem;
+}
+
 /* This file is for your main application CSS */
