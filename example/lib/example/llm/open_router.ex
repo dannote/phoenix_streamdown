@@ -1,5 +1,5 @@
 defmodule Example.LLM.OpenRouter do
-  @model "openrouter:anthropic/claude-sonnet-4-20250514"
+  @model "openrouter:anthropic/claude-3.5-sonnet"
 
   def stream(prompt, pid) do
     model = Application.get_env(:example, :llm_model, @model)
