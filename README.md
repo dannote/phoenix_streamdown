@@ -53,22 +53,25 @@ defmodule MyAppWeb.ChatLive do
 
   def handle_event("submit", %{"prompt" => prompt}, socket) do
     messages = socket.assigns.messages ++ [%{role: :user, content: prompt}]
-
-    context = [
-      ReqLLM.Context.system("You are a helpful assistant. Respond in markdown."),
-      ReqLLM.Context.user(prompt)
-    ]
-
-    {:ok, response} = ReqLLM.stream_text("anthropic:claude-sonnet-4-20250514", context)
-
     pid = self()
 
     Task.start(fn ->
-      response
-      |> ReqLLM.StreamResponse.tokens()
-      |> Enum.each(&send(pid, {:token, &1}))
+      context = [
+        ReqLLM.Context.system("You are a helpful assistant. Respond in markdown."),
+        ReqLLM.Context.user(prompt)
+      ]
 
-      send(pid, :stream_done)
+      case ReqLLM.stream_text("openrouter:anthropic/claude-3.5-sonnet", context) do
+        {:ok, response} ->
+          response
+          |> ReqLLM.StreamResponse.tokens()
+          |> Enum.each(&send(pid, {:token, &1}))
+
+          send(pid, :stream_done)
+
+        {:error, reason} ->
+          send(pid, {:stream_error, reason})
+      end
     end)
 
     {:noreply, assign(socket,
@@ -95,15 +98,22 @@ defmodule MyAppWeb.ChatLive do
     )}
   end
 
+  def handle_info({:stream_error, reason}, socket) do
+    {:noreply,
+     socket
+     |> assign(:streaming?, false)
+     |> put_flash(:error, "LLM error: #{inspect(reason)}")}
+  end
+
   def render(assigns) do
     ~H"""
     <div class="chat">
-      <div :for={msg <- @messages} class={"message #{msg.role}"}>
-        <PhoenixStreamdown.markdown content={msg.content} />
+      <div :for={{msg, idx} <- Enum.with_index(@messages)} class={"message #{msg.role}"}>
+        <PhoenixStreamdown.markdown content={msg.content} id={"msg-#{idx}"} />
       </div>
 
       <div :if={@streaming?} class="message assistant">
-        <PhoenixStreamdown.markdown content={@current_response} streaming />
+        <PhoenixStreamdown.markdown content={@current_response} streaming id="streaming" />
       </div>
 
       <.form for={@form} phx-submit="submit">
