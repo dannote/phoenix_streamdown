@@ -1,7 +1,7 @@
 defmodule PhoenixStreamdown.MixProject do
   use Mix.Project
 
-  @version "1.0.0-beta.1"
+  @version "1.0.0-beta.2"
   @source_url "https://github.com/dannote/phoenix_streamdown"
 
   def project do

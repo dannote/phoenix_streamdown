@@ -7,58 +7,62 @@ defmodule PhoenixStreamdown do
 
   ## Usage
 
-      # With full module name:
-      <PhoenixStreamdown.markdown content={@response} streaming={@streaming?} />
-
-      # Or import for shorter syntax:
       use PhoenixStreamdown
 
       <.markdown content={@response} streaming={@streaming?} />
 
+  Or without importing:
+
+      <PhoenixStreamdown.markdown content={@response} streaming={@streaming?} />
+
   ## How it works
 
-  1. **Remend** — auto-closes incomplete markdown syntax (`**bold` → `**bold**`)
-  2. **Blocks** — splits markdown into independent blocks
-  3. **Render** — converts each block to HTML via MDEx
-  4. **Diff** — LiveView only patches the last (active) block
+  1. `PhoenixStreamdown.Remend` — auto-closes incomplete markdown syntax
+     (`**bold` → `**bold**`, unclosed code fences, partial links)
+  2. `PhoenixStreamdown.Blocks` — splits markdown into independent blocks
+  3. [MDEx](https://hex.pm/packages/mdex) — renders each block to HTML server-side (Rust-backed)
+  4. LiveView — diffs only the active block, skips the rest
 
   Completed blocks get `phx-update="ignore"` so LiveView skips them entirely.
+  On a 56-block document, this means **~7x less server CPU** and **~460x smaller
+  diffs** per token compared to re-rendering the full document each time.
 
   ## Customization
 
   ### Syntax highlighting theme
 
-      <PhoenixStreamdown.markdown content={@md} theme="catppuccin_mocha" />
+      <.markdown content={@md} theme="catppuccin_mocha" />
 
   Available themes: `onedark` (default), `dracula`, `github_dark`, `github_light`,
   `catppuccin_mocha`, `nord`, `tokyonight_night`, `vscode_dark`, and
   [100+ more](https://lumis.sh).
 
-  ### Custom CSS classes
+  ### CSS classes
 
-      <PhoenixStreamdown.markdown
-        content={@md}
-        class="prose dark:prose-invert max-w-none"
-        block_class="mb-4"
-      />
+      <.markdown content={@md} class="prose" block_class="mb-4" />
 
   ### Stable IDs
 
-  Each component auto-generates a unique `id`. If you need a stable ID
-  (e.g. to preserve `phx-update="ignore"` blocks across re-renders),
-  pass one explicitly:
+  Each component auto-generates a unique `id`. For completed messages in a list,
+  pass a stable ID to preserve frozen blocks across re-renders:
 
-      <PhoenixStreamdown.markdown content={msg.content} id={msg.id} />
+      <.markdown content={msg.content} id={"msg-\#{msg.id}"} />
 
-  ### Full MDEx control
+  The streaming component doesn't need an explicit `id` — it's ephemeral.
 
-      <PhoenixStreamdown.markdown
-        content={@md}
-        mdex_opts={[
-          extension: [shortcodes: true, tagfilter: true],
-          render: [unsafe: true]
-        ]}
-      />
+  ### MDEx options
+
+  Options are deep-merged with defaults, so you only override what you need:
+
+      <.markdown content={@md} mdex_opts={[extension: [shortcodes: true]]} />
+
+  ## Why not just MDEx streaming?
+
+  MDEx has its own `streaming: true` mode. PhoenixStreamdown adds:
+
+  - **Block-level memoization** — only the last block re-renders per token
+  - **Ready-made LiveView component** — drop in, pass content and streaming flag
+  - **Remend** — strips partial links/images instead of rendering broken HTML
   """
 
   @doc """

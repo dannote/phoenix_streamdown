@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0-beta.2
+
+### Improvements
+
+- `use PhoenixStreamdown` imports `markdown/1` for `<.markdown />` syntax
+- Slimmed README — detailed docs moved to HexDocs moduledoc
+- Added benchmark data: ~7x less server CPU, ~460x smaller diffs on 56-block documents
+- Made `Remend` helper functions private (only `complete/1` is public API)
+- Added "Why not just MDEx streaming?" section to docs
+
 ## 1.0.0-beta.1
 
 Initial beta release.

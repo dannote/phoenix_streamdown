@@ -2,193 +2,51 @@
 
 Streaming markdown renderer for Phoenix LiveView, optimized for LLM output.
 
-Inspired by [Streamdown](https://streamdown.ai/) and [vue-stream-markdown](https://github.com/jinghaihan/vue-stream-markdown), but built to fully leverage LiveView's architecture — server-side rendering, automatic DOM diffing, and zero client-side JavaScript.
-
-## How It Works
-
-1. **Remend** — auto-closes incomplete markdown syntax (`**bold` → `**bold**`, unclosed code fences, partial links)
-2. **Blocks** — splits markdown into independent blocks so only the last one re-renders
-3. **MDEx** — converts each block to HTML server-side (Rust-backed, fast)
-4. **LiveView** — diffs and patches only what changed over the existing WebSocket
-
-Completed blocks get `phx-update="ignore"` — LiveView skips them entirely. Only the active (last) block gets diffed on each token.
+Inspired by [Streamdown](https://streamdown.ai/) and [vue-stream-markdown](https://github.com/jinghaihan/vue-stream-markdown), but built to fully leverage LiveView — server-side rendering, automatic DOM diffing, and zero client-side JavaScript.
 
 ## Installation
 
 ```elixir
 def deps do
-  [
-    {:phoenix_streamdown, "~> 1.0.0-beta"},
-    {:req_llm, "~> 1.6"} # optional, for the streaming example below
-  ]
+  [{:phoenix_streamdown, "~> 1.0.0-beta"}]
 end
 ```
 
 ## Usage
 
-### Basic
-
-Add `use PhoenixStreamdown` to your LiveView for the short `<.markdown />` syntax:
-
-```heex
-<.markdown content={@response} streaming={@streaming?} />
-```
-
-Or use the fully qualified name without importing:
-
-```heex
-<.markdown content={@response} streaming={@streaming?} />
-```
-
-### Full Chat with ReqLLM
-
 ```elixir
-defmodule MyAppWeb.ChatLive do
-  use MyAppWeb, :live_view
-  use PhoenixStreamdown
-
-  def mount(_params, _session, socket) do
-    {:ok, assign(socket,
-      messages: [],
-      current_response: "",
-      streaming?: false,
-      form: to_form(%{"prompt" => ""})
-    )}
-  end
-
-  def handle_event("submit", %{"prompt" => prompt}, socket) do
-    messages = socket.assigns.messages ++ [%{role: :user, content: prompt}]
-    pid = self()
-
-    Task.start(fn ->
-      context = [
-        ReqLLM.Context.system("You are a helpful assistant. Respond in markdown."),
-        ReqLLM.Context.user(prompt)
-      ]
-
-      case ReqLLM.stream_text("openrouter:anthropic/claude-3.5-sonnet", context) do
-        {:ok, response} ->
-          response
-          |> ReqLLM.StreamResponse.tokens()
-          |> Enum.each(&send(pid, {:token, &1}))
-
-          send(pid, :stream_done)
-
-        {:error, reason} ->
-          send(pid, {:stream_error, reason})
-      end
-    end)
-
-    {:noreply, assign(socket,
-      messages: messages,
-      current_response: "",
-      streaming?: true,
-      form: to_form(%{"prompt" => ""})
-    )}
-  end
-
-  def handle_info({:token, token}, socket) do
-    {:noreply, assign(socket, :current_response, socket.assigns.current_response <> token)}
-  end
-
-  def handle_info(:stream_done, socket) do
-    messages = socket.assigns.messages ++ [
-      %{role: :assistant, content: socket.assigns.current_response}
-    ]
-
-    {:noreply, assign(socket,
-      messages: messages,
-      current_response: "",
-      streaming?: false
-    )}
-  end
-
-  def handle_info({:stream_error, reason}, socket) do
-    {:noreply,
-     socket
-     |> assign(:streaming?, false)
-     |> put_flash(:error, "LLM error: #{inspect(reason)}")}
-  end
-
-  def render(assigns) do
-    ~H"""
-    <div class="chat">
-      <div :for={msg <- @messages} class={"message #{msg.role}"}>
-        <.markdown content={msg.content} />
-      </div>
-
-      <div :if={@streaming?} class="message assistant">
-        <.markdown content={@current_response} streaming />
-      </div>
-
-      <.form for={@form} phx-submit="submit">
-        <.input field={@form[:prompt]} placeholder="Ask something..." />
-        <button type="submit" disabled={@streaming?}>Send</button>
-      </.form>
-    </div>
-    """
-  end
-end
+use PhoenixStreamdown
 ```
-
-## Attributes
-
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `content` | `string` | `""` | Markdown string to render |
-| `streaming` | `boolean` | `false` | Enable incomplete syntax completion |
-| `class` | `any` | `nil` | CSS class for the wrapper `<div>` |
-| `block_class` | `any` | `nil` | CSS class for each block `<div>` |
-| `id` | `string` | auto | Unique ID prefix (auto-generated; pass explicitly for stable IDs) |
-| `theme` | `string` | `"onedark"` | Syntax highlighting theme ([100+ available](https://lumis.sh)) |
-| `mdex_opts` | `keyword` | `[]` | Options deep-merged with defaults and passed to `MDEx.to_html!/2` |
-
-## Customization
-
-### Syntax highlighting theme
 
 ```heex
-<.markdown content={@md} theme="catppuccin_mocha" />
+<.markdown content={@response} streaming={@streaming?} />
 ```
 
-Popular themes: `onedark`, `dracula`, `github_dark`, `github_light`, `catppuccin_mocha`, `nord`, `tokyonight_night`, `vscode_dark`. See [Lumis](https://lumis.sh) for the full list.
+That's it. Pass `content` as a markdown string, set `streaming` to `true` while tokens are arriving. Completed blocks are frozen with `phx-update="ignore"` — only the last block re-renders on each token.
 
-### Stable IDs
+## How it works
 
-Each component auto-generates a unique `id`. For completed messages, pass a stable ID
-to preserve `phx-update="ignore"` blocks across re-renders:
+1. **Remend** — auto-closes incomplete syntax (`**bold` → `**bold**`, unclosed fences, partial links)
+2. **Blocks** — splits into independent blocks so earlier ones are stable
+3. **MDEx** — renders each block to HTML server-side (Rust-backed)
+4. **LiveView** — diffs only the active block, skips the rest
 
-```heex
-<div :for={msg <- @messages}>
-  <.markdown content={msg.content} id={"msg-#{msg.id}"} />
-</div>
+On a 56-block document, this is **~7x less server work** and **~460x smaller diffs** per token compared to re-rendering the full document each time.
 
-<.markdown content={@current_response} streaming />
+## Example
+
+A full chat app with [ReqLLM](https://hex.pm/packages/req_llm) streaming is in the [`example/`](example/) directory. Run it:
+
+```bash
+cd example
+cp .env.example .env  # add your OpenRouter API key
+mix setup
+mix phx.server
 ```
 
-The streaming component doesn't need an explicit `id` — it's ephemeral and gets replaced
-when streaming completes.
+## Documentation
 
-### Full MDEx control
-
-The `mdex_opts` are deep-merged with defaults, so you only override what you need:
-
-```heex
-<.markdown
-  content={@md}
-  mdex_opts={[extension: [shortcodes: true], render: [unsafe: true]]}
-/>
-```
-
-## Why Not Just MDEx Streaming?
-
-MDEx has its own `streaming: true` mode that also handles incomplete syntax. PhoenixStreamdown adds:
-
-- **Block-level memoization** — only the last block re-renders, earlier blocks are frozen with `phx-update="ignore"`
-- **A ready-made LiveView component** — drop it in, pass content and streaming flag
-- **Remend layer** — handles edge cases like partial links/images (strip rather than render broken HTML)
-
-For simple cases, MDEx streaming alone may be sufficient. PhoenixStreamdown is worth it when rendering long, multi-block LLM responses where you want minimal DOM churn.
+**[HexDocs](https://hexdocs.pm/phoenix_streamdown)** — attributes, customization (themes, CSS classes, stable IDs, MDEx options).
 
 ## License
 
