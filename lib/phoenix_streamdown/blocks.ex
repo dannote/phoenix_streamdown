@@ -33,32 +33,37 @@ defmodule PhoenixStreamdown.Blocks do
   defp merge_code_fences(blocks) do
     {merged, acc, _inside} =
       Enum.reduce(blocks, {[], [], false}, fn block, {merged, acc, inside} ->
-        if inside do
-          new_acc = [block | acc]
-
-          has_closing =
-            block
-            |> String.split("\n")
-            |> Enum.any?(fn l ->
-              t = String.trim(l)
-              t == "```" or t == "~~~"
-            end)
-
-          if has_closing do
-            {merged ++ [join_acc(new_acc)], [], false}
-          else
-            {merged, new_acc, true}
-          end
-        else
-          if rem(fence_line_count(block), 2) == 1 do
-            {merged, [block], true}
-          else
-            {merged ++ [block], [], false}
-          end
-        end
+        reduce_code_fence(block, merged, acc, inside)
       end)
 
     flush_acc(merged, acc)
+  end
+
+  defp reduce_code_fence(block, merged, acc, true) do
+    new_acc = [block | acc]
+
+    if has_closing_fence?(block) do
+      {merged ++ [join_acc(new_acc)], [], false}
+    else
+      {merged, new_acc, true}
+    end
+  end
+
+  defp reduce_code_fence(block, merged, _acc, false) do
+    if rem(fence_line_count(block), 2) == 1 do
+      {merged, [block], true}
+    else
+      {merged ++ [block], [], false}
+    end
+  end
+
+  defp has_closing_fence?(block) do
+    block
+    |> String.split("\n")
+    |> Enum.any?(fn l ->
+      t = String.trim(l)
+      t == "```" or t == "~~~"
+    end)
   end
 
   defp fence_line_count(block) do
@@ -75,26 +80,30 @@ defmodule PhoenixStreamdown.Blocks do
   defp merge_math(blocks) do
     {merged, acc, _inside} =
       Enum.reduce(blocks, {[], [], false}, fn block, {merged, acc, inside} ->
-        dd_count = dollar_pair_count(block)
-
-        if inside do
-          new_acc = [block | acc]
-
-          if dd_count > 0 do
-            {merged ++ [join_acc(new_acc)], [], false}
-          else
-            {merged, new_acc, true}
-          end
-        else
-          if dd_count > 0 and rem(dd_count, 2) == 1 do
-            {merged, [block], true}
-          else
-            {merged ++ [block], [], false}
-          end
-        end
+        reduce_math(block, merged, acc, inside)
       end)
 
     flush_acc(merged, acc)
+  end
+
+  defp reduce_math(block, merged, acc, true) do
+    new_acc = [block | acc]
+
+    if dollar_pair_count(block) > 0 do
+      {merged ++ [join_acc(new_acc)], [], false}
+    else
+      {merged, new_acc, true}
+    end
+  end
+
+  defp reduce_math(block, merged, _acc, false) do
+    dd_count = dollar_pair_count(block)
+
+    if dd_count > 0 and rem(dd_count, 2) == 1 do
+      {merged, [block], true}
+    else
+      {merged ++ [block], [], false}
+    end
   end
 
   defp dollar_pair_count(text) do
@@ -106,23 +115,27 @@ defmodule PhoenixStreamdown.Blocks do
   defp merge_html(blocks) do
     {merged, acc, _tag} =
       Enum.reduce(blocks, {[], [], nil}, fn block, {merged, acc, tracked_tag} ->
-        if tracked_tag do
-          new_acc = [block | acc]
-
-          if closes_tag?(block, tracked_tag) do
-            {merged ++ [join_acc(new_acc)], [], nil}
-          else
-            {merged, new_acc, tracked_tag}
-          end
-        else
-          case unclosed_html_tag(block) do
-            nil -> {merged ++ [block], [], nil}
-            tag -> {merged, [block], tag}
-          end
-        end
+        reduce_html(block, merged, acc, tracked_tag)
       end)
 
     flush_acc(merged, acc)
+  end
+
+  defp reduce_html(block, merged, acc, tracked_tag) when is_binary(tracked_tag) do
+    new_acc = [block | acc]
+
+    if closes_tag?(block, tracked_tag) do
+      {merged ++ [join_acc(new_acc)], [], nil}
+    else
+      {merged, new_acc, tracked_tag}
+    end
+  end
+
+  defp reduce_html(block, merged, _acc, nil) do
+    case unclosed_html_tag(block) do
+      nil -> {merged ++ [block], [], nil}
+      tag -> {merged, [block], tag}
+    end
   end
 
   defp unclosed_html_tag(block) do
@@ -134,9 +147,7 @@ defmodule PhoenixStreamdown.Blocks do
       Regex.scan(~r/<\/(\w+)\s*>/, block)
       |> Enum.map(fn [_, tag] -> String.downcase(tag) end)
 
-    unclosed = opens -- closes
-
-    case unclosed do
+    case opens -- closes do
       [tag | _] -> tag
       [] -> nil
     end

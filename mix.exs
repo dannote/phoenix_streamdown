@@ -15,7 +15,11 @@ defmodule PhoenixStreamdown.MixProject do
       description: "Streaming markdown renderer for Phoenix LiveView, optimized for LLM output",
       package: package(),
       docs: docs(),
-      source_url: @source_url
+      source_url: @source_url,
+      dialyzer: [
+        plt_add_apps: [:ex_unit],
+        plt_file: {:no_warn, "priv/plts/project.plt"}
+      ]
     ]
   end
 
@@ -29,7 +33,9 @@ defmodule PhoenixStreamdown.MixProject do
     [
       {:phoenix_live_view, "~> 1.0"},
       {:mdex, "~> 0.11"},
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
