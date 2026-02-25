@@ -52,7 +52,8 @@ defmodule MyAppWeb.ChatLive do
   end
 
   def handle_event("submit", %{"prompt" => prompt}, socket) do
-    messages = socket.assigns.messages ++ [%{role: :user, content: prompt}]
+    user_msg = %{id: System.unique_integer([:positive]), role: :user, content: prompt}
+    messages = socket.assigns.messages ++ [user_msg]
     pid = self()
 
     Task.start(fn ->
@@ -87,9 +88,8 @@ defmodule MyAppWeb.ChatLive do
   end
 
   def handle_info(:stream_done, socket) do
-    messages = socket.assigns.messages ++ [
-      %{role: :assistant, content: socket.assigns.current_response}
-    ]
+    assistant_msg = %{id: System.unique_integer([:positive]), role: :assistant, content: socket.assigns.current_response}
+    messages = socket.assigns.messages ++ [assistant_msg]
 
     {:noreply, assign(socket,
       messages: messages,
@@ -108,8 +108,8 @@ defmodule MyAppWeb.ChatLive do
   def render(assigns) do
     ~H"""
     <div class="chat">
-      <div :for={{msg, idx} <- Enum.with_index(@messages)} class={"message #{msg.role}"}>
-        <PhoenixStreamdown.markdown content={msg.content} id={"msg-#{idx}"} />
+      <div :for={msg <- @messages} class={"message #{msg.role}"}>
+        <PhoenixStreamdown.markdown content={msg.content} id={"msg-#{msg.id}"} />
       </div>
 
       <div :if={@streaming?} class="message assistant">
@@ -134,7 +134,7 @@ end
 | `streaming` | `boolean` | `false` | Enable incomplete syntax completion |
 | `class` | `any` | `nil` | CSS class for the wrapper `<div>` |
 | `block_class` | `any` | `nil` | CSS class for each block `<div>` |
-| `id` | `string` | `"psd"` | Unique ID prefix (required for multiple instances per page) |
+| `id` | `string` | auto | Unique ID prefix (auto-generated; pass explicitly for stable IDs) |
 | `theme` | `string` | `"onedark"` | Syntax highlighting theme ([100+ available](https://lumis.sh)) |
 | `mdex_opts` | `keyword` | `[]` | Options deep-merged with defaults and passed to `MDEx.to_html!/2` |
 
@@ -148,17 +148,21 @@ end
 
 Popular themes: `onedark`, `dracula`, `github_dark`, `github_light`, `catppuccin_mocha`, `nord`, `tokyonight_night`, `vscode_dark`. See [Lumis](https://lumis.sh) for the full list.
 
-### Multiple instances
+### Stable IDs
 
-Each component instance needs a unique `id` to avoid DOM conflicts:
+Each component auto-generates a unique `id`. For completed messages, pass a stable ID
+to preserve `phx-update="ignore"` blocks across re-renders:
 
 ```heex
-<div :for={{msg, idx} <- Enum.with_index(@messages)}>
-  <PhoenixStreamdown.markdown content={msg.content} id={"msg-#{idx}"} />
+<div :for={msg <- @messages}>
+  <PhoenixStreamdown.markdown content={msg.content} id={"msg-#{msg.id}"} />
 </div>
 
-<PhoenixStreamdown.markdown content={@current_response} streaming id="streaming" />
+<PhoenixStreamdown.markdown content={@current_response} streaming />
 ```
+
+The streaming component doesn't need an explicit `id` — it's ephemeral and gets replaced
+when streaming completes.
 
 ### Full MDEx control
 

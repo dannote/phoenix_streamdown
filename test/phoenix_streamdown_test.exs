@@ -90,7 +90,23 @@ defmodule PhoenixStreamdownTest do
       assert html =~ "language-elixir"
     end
 
-    test "applies custom id prefix" do
+    test "auto-generates unique id" do
+      html1 =
+        render_component(&PhoenixStreamdown.markdown/1, %{
+          content: "Hello"
+        })
+
+      html2 =
+        render_component(&PhoenixStreamdown.markdown/1, %{
+          content: "Hello"
+        })
+
+      [_, id1] = Regex.run(~r/id="(psd-\d+)"/, html1)
+      [_, id2] = Regex.run(~r/id="(psd-\d+)"/, html2)
+      assert id1 != id2
+    end
+
+    test "accepts explicit id prefix" do
       html =
         render_component(&PhoenixStreamdown.markdown/1, %{
           content: "# Title\n\nParagraph",

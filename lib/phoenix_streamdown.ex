@@ -39,10 +39,13 @@ defmodule PhoenixStreamdown do
         block_class="mb-4"
       />
 
-  ### Multiple instances on the same page
+  ### Stable IDs
 
-      <PhoenixStreamdown.markdown content={msg1} id="msg-1" />
-      <PhoenixStreamdown.markdown content={msg2} id="msg-2" />
+  Each component auto-generates a unique `id`. If you need a stable ID
+  (e.g. to preserve `phx-update="ignore"` blocks across re-renders),
+  pass one explicitly:
+
+      <PhoenixStreamdown.markdown content={msg.content} id={msg.id} />
 
   ### Full MDEx control
 
@@ -80,7 +83,7 @@ defmodule PhoenixStreamdown do
     * `streaming` — whether content is still being streamed (enables incomplete syntax completion)
     * `class` — CSS class for the wrapper `<div>`
     * `block_class` — CSS class for each block `<div>`
-    * `id` — unique ID prefix (required when rendering multiple instances on the same page)
+    * `id` — unique ID prefix (auto-generated; pass explicitly for stable IDs across re-renders)
     * `theme` — syntax highlighting theme name (default: `"onedark"`)
     * `mdex_opts` — options passed to `MDEx.to_html!/2` (merged with defaults)
 
@@ -99,11 +102,12 @@ defmodule PhoenixStreamdown do
   attr :streaming, :boolean, default: false
   attr :class, :any, default: nil
   attr :block_class, :any, default: nil
-  attr :id, :string, default: "psd"
+  attr :id, :string
   attr :theme, :string, default: "onedark"
   attr :mdex_opts, :list, default: []
 
   def markdown(assigns) do
+    assigns = assign_new(assigns, :id, fn -> "psd-#{System.unique_integer([:positive])}" end)
     completed =
       if assigns.streaming do
         Remend.complete(assigns.content || "")

@@ -15,7 +15,8 @@ defmodule ExampleWeb.ChatLive do
 
   @impl true
   def handle_event("submit", %{"prompt" => prompt}, socket) when prompt != "" do
-    messages = socket.assigns.messages ++ [%{role: :user, content: prompt}]
+    user_msg = %{id: System.unique_integer([:positive]), role: :user, content: prompt}
+    messages = socket.assigns.messages ++ [user_msg]
 
     Example.LLM.stream(prompt, self())
 
@@ -36,9 +37,8 @@ defmodule ExampleWeb.ChatLive do
   end
 
   def handle_info(:stream_done, socket) do
-    messages =
-      socket.assigns.messages ++
-        [%{role: :assistant, content: socket.assigns.current_response}]
+    assistant_msg = %{id: System.unique_integer([:positive]), role: :assistant, content: socket.assigns.current_response}
+    messages = socket.assigns.messages ++ [assistant_msg]
 
     {:noreply,
      assign(socket,
@@ -81,7 +81,7 @@ defmodule ExampleWeb.ChatLive do
         </div>
 
         <div
-          :for={{msg, idx} <- Enum.with_index(@messages)}
+          :for={msg <- @messages}
           class={["rounded-xl px-5 py-4", message_bg(msg.role)]}
         >
           <div class="flex items-center gap-2 mb-2">
@@ -93,7 +93,7 @@ defmodule ExampleWeb.ChatLive do
             </span>
           </div>
           <div class="psd-prose pl-7">
-            <PhoenixStreamdown.markdown content={msg.content} id={"msg-#{idx}"} />
+            <PhoenixStreamdown.markdown content={msg.content} id={"msg-#{msg.id}"} />
           </div>
         </div>
 
