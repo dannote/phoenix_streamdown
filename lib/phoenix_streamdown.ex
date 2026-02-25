@@ -7,10 +7,13 @@ defmodule PhoenixStreamdown do
 
   ## Usage
 
-      <PhoenixStreamdown.markdown
-        content={@current_response}
-        streaming={@streaming?}
-      />
+      # With full module name:
+      <PhoenixStreamdown.markdown content={@response} streaming={@streaming?} />
+
+      # Or import for shorter syntax:
+      use PhoenixStreamdown
+
+      <.markdown content={@response} streaming={@streaming?} />
 
   ## How it works
 
@@ -57,6 +60,26 @@ defmodule PhoenixStreamdown do
         ]}
       />
   """
+
+  @doc """
+  Imports the `markdown/1` component for use as `<.markdown />`.
+
+      defmodule MyAppWeb.ChatLive do
+        use MyAppWeb, :live_view
+        use PhoenixStreamdown
+
+        def render(assigns) do
+          ~H\"\"\"
+          <.markdown content={@response} streaming={@streaming?} />
+          \"\"\"
+        end
+      end
+  """
+  defmacro __using__(_opts) do
+    quote do
+      import PhoenixStreamdown, only: [markdown: 1]
+    end
+  end
 
   use Phoenix.Component
 

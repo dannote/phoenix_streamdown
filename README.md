@@ -28,12 +28,16 @@ end
 
 ### Basic
 
+Add `use PhoenixStreamdown` to your LiveView for the short `<.markdown />` syntax:
+
 ```heex
-<PhoenixStreamdown.markdown
-  content={@response}
-  streaming={@streaming?}
-  class="prose dark:prose-invert"
-/>
+<.markdown content={@response} streaming={@streaming?} />
+```
+
+Or use the fully qualified name without importing:
+
+```heex
+<.markdown content={@response} streaming={@streaming?} />
 ```
 
 ### Full Chat with ReqLLM
@@ -41,6 +45,7 @@ end
 ```elixir
 defmodule MyAppWeb.ChatLive do
   use MyAppWeb, :live_view
+  use PhoenixStreamdown
 
   def mount(_params, _session, socket) do
     {:ok, assign(socket,
@@ -109,11 +114,11 @@ defmodule MyAppWeb.ChatLive do
     ~H"""
     <div class="chat">
       <div :for={msg <- @messages} class={"message #{msg.role}"}>
-        <PhoenixStreamdown.markdown content={msg.content} />
+        <.markdown content={msg.content} />
       </div>
 
       <div :if={@streaming?} class="message assistant">
-        <PhoenixStreamdown.markdown content={@current_response} streaming />
+        <.markdown content={@current_response} streaming />
       </div>
 
       <.form for={@form} phx-submit="submit">
@@ -143,7 +148,7 @@ end
 ### Syntax highlighting theme
 
 ```heex
-<PhoenixStreamdown.markdown content={@md} theme="catppuccin_mocha" />
+<.markdown content={@md} theme="catppuccin_mocha" />
 ```
 
 Popular themes: `onedark`, `dracula`, `github_dark`, `github_light`, `catppuccin_mocha`, `nord`, `tokyonight_night`, `vscode_dark`. See [Lumis](https://lumis.sh) for the full list.
@@ -155,10 +160,10 @@ to preserve `phx-update="ignore"` blocks across re-renders:
 
 ```heex
 <div :for={msg <- @messages}>
-  <PhoenixStreamdown.markdown content={msg.content} id={"msg-#{msg.id}"} />
+  <.markdown content={msg.content} id={"msg-#{msg.id}"} />
 </div>
 
-<PhoenixStreamdown.markdown content={@current_response} streaming />
+<.markdown content={@current_response} streaming />
 ```
 
 The streaming component doesn't need an explicit `id` — it's ephemeral and gets replaced
@@ -169,7 +174,7 @@ when streaming completes.
 The `mdex_opts` are deep-merged with defaults, so you only override what you need:
 
 ```heex
-<PhoenixStreamdown.markdown
+<.markdown
   content={@md}
   mdex_opts={[extension: [shortcodes: true], render: [unsafe: true]]}
 />

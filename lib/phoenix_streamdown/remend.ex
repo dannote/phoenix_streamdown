@@ -41,8 +41,7 @@ defmodule PhoenixStreamdown.Remend do
     end
   end
 
-  @doc false
-  def complete_code_fences(text) do
+  defp complete_code_fences(text) do
     fence_count =
       text
       |> String.split("\n")
@@ -59,8 +58,7 @@ defmodule PhoenixStreamdown.Remend do
     end
   end
 
-  @doc false
-  def complete_inline_code(text) do
+  defp complete_inline_code(text) do
     if within_code_block?(text), do: text, else: do_complete_inline_code(text)
   end
 
@@ -88,8 +86,7 @@ defmodule PhoenixStreamdown.Remend do
     count_unescaped_backticks(rest, count, false)
   end
 
-  @doc false
-  def complete_math_blocks(text) do
+  defp complete_math_blocks(text) do
     if within_code_block?(text), do: text, else: do_complete_math_blocks(text)
   end
 
@@ -107,8 +104,7 @@ defmodule PhoenixStreamdown.Remend do
     end
   end
 
-  @doc false
-  def complete_links_and_images(text) do
+  defp complete_links_and_images(text) do
     if within_code_block?(text), do: text, else: do_complete_links_and_images(text)
   end
 
@@ -135,8 +131,7 @@ defmodule PhoenixStreamdown.Remend do
     end
   end
 
-  @doc false
-  def complete_bold_italic(text) do
+  defp complete_bold_italic(text) do
     if within_code_block?(text), do: text, else: do_complete_bold_italic(text)
   end
 
@@ -194,8 +189,7 @@ defmodule PhoenixStreamdown.Remend do
     |> max(0)
   end
 
-  @doc false
-  def complete_strikethrough(text) do
+  defp complete_strikethrough(text) do
     if within_code_block?(text), do: text, else: do_complete_strikethrough(text)
   end
 
@@ -209,8 +203,7 @@ defmodule PhoenixStreamdown.Remend do
     Regex.replace(~r/(```|~~~).*?\1/s, text, "")
   end
 
-  @doc false
-  def within_code_block?(text) do
+  defp within_code_block?(text) do
     text
     |> String.split("\n")
     |> Enum.reduce(false, fn line, in_block ->

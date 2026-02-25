@@ -1,7 +1,17 @@
 defmodule PhoenixStreamdownTest do
   use ExUnit.Case, async: true
+  use PhoenixStreamdown
 
   import Phoenix.LiveViewTest
+
+  describe "use PhoenixStreamdown" do
+    test "imports markdown/1 for <.markdown /> syntax" do
+      html = render_component(&markdown/1, %{content: "**hello**"})
+
+      assert html =~ "<strong>"
+      assert html =~ "hello"
+    end
+  end
 
   describe "markdown/1" do
     test "renders basic markdown" do
