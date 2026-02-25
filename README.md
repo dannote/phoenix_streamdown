@@ -122,8 +122,44 @@ end
 |-----------|------|---------|-------------|
 | `content` | `string` | `""` | Markdown string to render |
 | `streaming` | `boolean` | `false` | Enable incomplete syntax completion |
-| `class` | `string` | `nil` | CSS class for the wrapper div |
-| `mdex_opts` | `keyword` | `[]` | Options passed to `MDEx.to_html!/2` |
+| `class` | `any` | `nil` | CSS class for the wrapper `<div>` |
+| `block_class` | `any` | `nil` | CSS class for each block `<div>` |
+| `id` | `string` | `"psd"` | Unique ID prefix (required for multiple instances per page) |
+| `theme` | `string` | `"onedark"` | Syntax highlighting theme ([100+ available](https://lumis.sh)) |
+| `mdex_opts` | `keyword` | `[]` | Options deep-merged with defaults and passed to `MDEx.to_html!/2` |
+
+## Customization
+
+### Syntax highlighting theme
+
+```heex
+<PhoenixStreamdown.markdown content={@md} theme="catppuccin_mocha" />
+```
+
+Popular themes: `onedark`, `dracula`, `github_dark`, `github_light`, `catppuccin_mocha`, `nord`, `tokyonight_night`, `vscode_dark`. See [Lumis](https://lumis.sh) for the full list.
+
+### Multiple instances
+
+Each component instance needs a unique `id` to avoid DOM conflicts:
+
+```heex
+<div :for={{msg, idx} <- Enum.with_index(@messages)}>
+  <PhoenixStreamdown.markdown content={msg.content} id={"msg-#{idx}"} />
+</div>
+
+<PhoenixStreamdown.markdown content={@current_response} streaming id="streaming" />
+```
+
+### Full MDEx control
+
+The `mdex_opts` are deep-merged with defaults, so you only override what you need:
+
+```heex
+<PhoenixStreamdown.markdown
+  content={@md}
+  mdex_opts={[extension: [shortcodes: true], render: [unsafe: true]]}
+/>
+```
 
 ## Why Not Just MDEx Streaming?
 

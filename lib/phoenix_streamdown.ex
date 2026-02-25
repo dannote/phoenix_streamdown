@@ -20,6 +20,39 @@ defmodule PhoenixStreamdown do
   4. **Diff** — LiveView only patches the last (active) block
 
   Completed blocks get `phx-update="ignore"` so LiveView skips them entirely.
+
+  ## Customization
+
+  ### Syntax highlighting theme
+
+      <PhoenixStreamdown.markdown content={@md} theme="catppuccin_mocha" />
+
+  Available themes: `onedark` (default), `dracula`, `github_dark`, `github_light`,
+  `catppuccin_mocha`, `nord`, `tokyonight_night`, `vscode_dark`, and
+  [100+ more](https://lumis.sh).
+
+  ### Custom CSS classes
+
+      <PhoenixStreamdown.markdown
+        content={@md}
+        class="prose dark:prose-invert max-w-none"
+        block_class="mb-4"
+      />
+
+  ### Multiple instances on the same page
+
+      <PhoenixStreamdown.markdown content={msg1} id="msg-1" />
+      <PhoenixStreamdown.markdown content={msg2} id="msg-2" />
+
+  ### Full MDEx control
+
+      <PhoenixStreamdown.markdown
+        content={@md}
+        mdex_opts={[
+          extension: [shortcodes: true, tagfilter: true],
+          render: [unsafe: true]
+        ]}
+      />
   """
 
   use Phoenix.Component
@@ -45,8 +78,11 @@ defmodule PhoenixStreamdown do
 
     * `content` — the markdown string to render
     * `streaming` — whether content is still being streamed (enables incomplete syntax completion)
-    * `class` — CSS class for the wrapper div
-    * `mdex_opts` — options passed to `MDEx.to_html!/2`
+    * `class` — CSS class for the wrapper `<div>`
+    * `block_class` — CSS class for each block `<div>`
+    * `id` — unique ID prefix (required when rendering multiple instances on the same page)
+    * `theme` — syntax highlighting theme name (default: `"onedark"`)
+    * `mdex_opts` — options passed to `MDEx.to_html!/2` (merged with defaults)
 
   ## Examples
 
@@ -56,11 +92,15 @@ defmodule PhoenixStreamdown do
         content={@response}
         streaming={@streaming?}
         class="prose"
+        theme="github_dark"
       />
   """
   attr :content, :string, default: ""
   attr :streaming, :boolean, default: false
   attr :class, :any, default: nil
+  attr :block_class, :any, default: nil
+  attr :id, :string, default: "psd"
+  attr :theme, :string, default: "onedark"
   attr :mdex_opts, :list, default: []
 
   def markdown(assigns) do
@@ -75,13 +115,12 @@ defmodule PhoenixStreamdown do
       completed
       |> Blocks.parse()
       |> Enum.with_index()
-      |> Enum.map(fn {block, idx} -> {idx, block} end)
 
-    mdex_opts = Keyword.merge(@default_mdex_opts, assigns.mdex_opts)
+    mdex_opts = build_mdex_opts(assigns.mdex_opts, assigns.theme)
     last_idx = length(blocks) - 1
 
     rendered_blocks =
-      Enum.map(blocks, fn {idx, block} ->
+      Enum.map(blocks, fn {block, idx} ->
         {idx, render_block(block, mdex_opts), idx == last_idx}
       end)
 
@@ -91,16 +130,39 @@ defmodule PhoenixStreamdown do
       |> assign(:last_idx, last_idx)
 
     ~H"""
-    <div class={["phoenix-streamdown", @class]}>
+    <div class={["phoenix-streamdown", @class]} id={@id}>
       <div
         :for={{idx, html, is_last} <- @rendered_blocks}
-        id={"psd-block-#{idx}"}
+        id={"#{@id}-block-#{idx}"}
+        class={@block_class}
         phx-update={unless(is_last and @streaming, do: "ignore")}
       >
         {raw(html)}
       </div>
     </div>
     """
+  end
+
+  defp build_mdex_opts(user_opts, theme) do
+    theme_opts = [
+      syntax_highlight: [
+        formatter: {:html_inline, [theme: theme]}
+      ]
+    ]
+
+    @default_mdex_opts
+    |> deep_merge(theme_opts)
+    |> deep_merge(user_opts)
+  end
+
+  defp deep_merge(base, override) do
+    Keyword.merge(base, override, fn _key, v1, v2 ->
+      if Keyword.keyword?(v1) and Keyword.keyword?(v2) do
+        deep_merge(v1, v2)
+      else
+        v2
+      end
+    end)
   end
 
   defp render_block(block, mdex_opts) do

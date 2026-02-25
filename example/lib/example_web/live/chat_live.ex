@@ -63,7 +63,7 @@ defmodule ExampleWeb.ChatLive do
 
       <div id="messages" class="space-y-6 mb-8">
         <div
-          :for={msg <- @messages}
+          :for={{msg, idx} <- Enum.with_index(@messages)}
           class={[
             "rounded-lg px-4 py-3",
             if(msg.role == :user, do: "bg-blue-50 dark:bg-blue-950", else: "bg-gray-50 dark:bg-gray-900")
@@ -73,7 +73,7 @@ defmodule ExampleWeb.ChatLive do
             {if msg.role == :user, do: "You", else: "Assistant"}
           </div>
           <div class="prose dark:prose-invert max-w-none">
-            <PhoenixStreamdown.markdown content={msg.content} />
+            <PhoenixStreamdown.markdown content={msg.content} id={"msg-#{idx}"} />
           </div>
         </div>
 
@@ -83,7 +83,7 @@ defmodule ExampleWeb.ChatLive do
         >
           <div class="text-xs font-medium text-gray-500 mb-2">Assistant</div>
           <div class="prose dark:prose-invert max-w-none">
-            <PhoenixStreamdown.markdown content={@current_response} streaming />
+            <PhoenixStreamdown.markdown content={@current_response} streaming id="streaming" />
           </div>
         </div>
       </div>
