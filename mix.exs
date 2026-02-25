@@ -1,7 +1,7 @@
 defmodule PhoenixStreamdown.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "1.0.0-beta.1"
   @source_url "https://github.com/dannote/phoenix_streamdown"
 
   def project do
@@ -16,6 +16,7 @@ defmodule PhoenixStreamdown.MixProject do
       package: package(),
       docs: docs(),
       source_url: @source_url,
+      homepage_url: @source_url,
       dialyzer: [
         plt_add_apps: [:ex_unit],
         plt_file: {:no_warn, "priv/plts/project.plt"}
@@ -42,14 +43,16 @@ defmodule PhoenixStreamdown.MixProject do
   defp package do
     [
       licenses: ["MIT"],
-      links: %{"GitHub" => @source_url}
+      links: %{"GitHub" => @source_url, "Changelog" => "#{@source_url}/blob/main/CHANGELOG.md"},
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE CHANGELOG.md)
     ]
   end
 
   defp docs do
     [
       main: "PhoenixStreamdown",
-      source_ref: "v#{@version}"
+      source_ref: "v#{@version}",
+      extras: ["CHANGELOG.md"]
     ]
   end
 end

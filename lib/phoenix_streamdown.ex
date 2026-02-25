@@ -108,6 +108,7 @@ defmodule PhoenixStreamdown do
 
   def markdown(assigns) do
     assigns = assign_new(assigns, :id, fn -> "psd-#{System.unique_integer([:positive])}" end)
+
     completed =
       if assigns.streaming do
         Remend.complete(assigns.content || "")

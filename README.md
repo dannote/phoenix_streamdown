@@ -18,7 +18,7 @@ Completed blocks get `phx-update="ignore"` — LiveView skips them entirely. Onl
 ```elixir
 def deps do
   [
-    {:phoenix_streamdown, "~> 0.1.0"},
+    {:phoenix_streamdown, "~> 1.0.0-beta"},
     {:req_llm, "~> 1.6"} # optional, for the streaming example below
   ]
 end
