@@ -52,8 +52,7 @@ defmodule MyAppWeb.ChatLive do
   end
 
   def handle_event("submit", %{"prompt" => prompt}, socket) do
-    user_msg = %{id: System.unique_integer([:positive]), role: :user, content: prompt}
-    messages = socket.assigns.messages ++ [user_msg]
+    messages = socket.assigns.messages ++ [%{role: :user, content: prompt}]
     pid = self()
 
     Task.start(fn ->
@@ -88,8 +87,9 @@ defmodule MyAppWeb.ChatLive do
   end
 
   def handle_info(:stream_done, socket) do
-    assistant_msg = %{id: System.unique_integer([:positive]), role: :assistant, content: socket.assigns.current_response}
-    messages = socket.assigns.messages ++ [assistant_msg]
+    messages = socket.assigns.messages ++ [
+      %{role: :assistant, content: socket.assigns.current_response}
+    ]
 
     {:noreply, assign(socket,
       messages: messages,
@@ -109,11 +109,11 @@ defmodule MyAppWeb.ChatLive do
     ~H"""
     <div class="chat">
       <div :for={msg <- @messages} class={"message #{msg.role}"}>
-        <PhoenixStreamdown.markdown content={msg.content} id={"msg-#{msg.id}"} />
+        <PhoenixStreamdown.markdown content={msg.content} />
       </div>
 
       <div :if={@streaming?} class="message assistant">
-        <PhoenixStreamdown.markdown content={@current_response} streaming id="streaming" />
+        <PhoenixStreamdown.markdown content={@current_response} streaming />
       </div>
 
       <.form for={@form} phx-submit="submit">
