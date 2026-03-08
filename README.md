@@ -2,7 +2,7 @@
 
 Streaming markdown renderer for Phoenix LiveView, optimized for LLM output.
 
-Inspired by [Streamdown](https://streamdown.ai/) and [vue-stream-markdown](https://github.com/jinghaihan/vue-stream-markdown), but built to fully leverage LiveView — server-side rendering, automatic DOM diffing, and zero client-side JavaScript.
+Inspired by [Streamdown](https://streamdown.ai/) and [vue-stream-markdown](https://github.com/jinghaihan/vue-stream-markdown), but built to fully leverage LiveView — server-side rendering, automatic DOM diffing, word-level streaming animations, and zero client-side JavaScript.
 
 ## Installation
 
@@ -23,6 +23,20 @@ use PhoenixStreamdown
 ```
 
 That's it. Pass `content` as a markdown string, set `streaming` to `true` while tokens are arriving. Completed blocks are frozen with `phx-update="ignore"` — only the last block re-renders on each token.
+
+### Streaming animations
+
+Add word-level fade-in like [Vercel's Streamdown](https://github.com/vercel/streamdown):
+
+```heex
+<.markdown content={@response} streaming animate="fadeIn" />
+```
+
+Include the CSS (`fadeIn`, `blurIn`, `slideUp`):
+
+```css
+@import "../../deps/phoenix_streamdown/priv/static/phoenix_streamdown.css";
+```
 
 ## How it works
 

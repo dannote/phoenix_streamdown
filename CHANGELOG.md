@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.0.0-beta.3
+
+### Features
+
+- **Word-level streaming animations** — new `animate` attribute enables per-word fade-in during streaming, inspired by [Vercel's Streamdown](https://github.com/vercel/streamdown). Three built-in animations: `fadeIn`, `blurIn`, `slideUp`. Pure server-side — no JS hooks required.
+
+  ```heex
+  <.markdown content={@response} streaming animate="fadeIn" />
+  ```
+
+- Ship `priv/static/phoenix_streamdown.css` with animation keyframes. Include in your app:
+
+  ```css
+  @import "../../deps/phoenix_streamdown/priv/static/phoenix_streamdown.css";
+  ```
+
+### Improvements
+
+- `mix ci` alias: `compile --warnings-as-errors`, `test`, `credo --strict`, `dialyzer`
+- `priv/static/` included in hex package
+
 ## 1.0.0-beta.2
 
 ### Improvements
