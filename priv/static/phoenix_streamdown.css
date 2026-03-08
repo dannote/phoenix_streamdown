@@ -1,0 +1,18 @@
+@keyframes psd-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes psd-blurIn {
+  from { opacity: 0; filter: blur(4px); }
+  to { opacity: 1; filter: blur(0); }
+}
+
+@keyframes psd-slideUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+[data-psd-animate] {
+  animation: var(--psd-animation, psd-fadeIn) var(--psd-dur, 150ms) var(--psd-easing, ease) both;
+}

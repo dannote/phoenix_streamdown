@@ -27,6 +27,18 @@ defmodule PhoenixStreamdown do
   On a 56-block document, this means **~7x less server CPU** and **~460x smaller
   diffs** per token compared to re-rendering the full document each time.
 
+  ## Animations
+
+  Enable word-level streaming animations (like Vercel's Streamdown):
+
+      <.markdown content={@response} streaming animate="fadeIn" />
+
+  Available animations: `fadeIn` (default), `blurIn`, `slideUp`.
+
+  Include the CSS in your app:
+
+      @import "../../deps/phoenix_streamdown/priv/static/phoenix_streamdown.css";
+
   ## Customization
 
   ### Syntax highlighting theme
@@ -63,6 +75,7 @@ defmodule PhoenixStreamdown do
   - **Block-level memoization** — only the last block re-renders per token
   - **Ready-made LiveView component** — drop in, pass content and streaming flag
   - **Remend** — strips partial links/images instead of rendering broken HTML
+  - **Word-level animations** — fade-in/blur-in each new word as it streams
   """
 
   @doc """
@@ -89,6 +102,7 @@ defmodule PhoenixStreamdown do
 
   import Phoenix.HTML, only: [raw: 1]
 
+  alias PhoenixStreamdown.Animate
   alias PhoenixStreamdown.Blocks
   alias PhoenixStreamdown.Remend
 
@@ -108,6 +122,7 @@ defmodule PhoenixStreamdown do
 
     * `content` — the markdown string to render
     * `streaming` — whether content is still being streamed (enables incomplete syntax completion)
+    * `animate` — animation type for streaming: `"fadeIn"`, `"blurIn"`, `"slideUp"`, or `nil` to disable
     * `class` — CSS class for the wrapper `<div>`
     * `block_class` — CSS class for each block `<div>`
     * `id` — unique ID prefix (auto-generated; pass explicitly for stable IDs across re-renders)
@@ -120,13 +135,15 @@ defmodule PhoenixStreamdown do
 
       <PhoenixStreamdown.markdown
         content={@response}
-        streaming={@streaming?}
+        streaming
+        animate="blurIn"
         class="prose"
         theme="github_dark"
       />
   """
   attr :content, :string, default: ""
   attr :streaming, :boolean, default: false
+  attr :animate, :string, default: nil
   attr :class, :any, default: nil
   attr :block_class, :any, default: nil
   attr :id, :string
@@ -150,11 +167,35 @@ defmodule PhoenixStreamdown do
 
     mdex_opts = build_mdex_opts(assigns.mdex_opts, assigns.theme)
     last_idx = length(blocks) - 1
+    animate? = assigns.streaming and is_binary(assigns.animate) and assigns.animate != ""
 
     rendered_blocks =
-      Enum.map(blocks, fn {block, idx} ->
-        {idx, render_block(block, mdex_opts), idx == last_idx}
-      end)
+      if animate? do
+        pdict_key = {__MODULE__, assigns.id}
+        {prev_block_idx, prev_chars} = Process.get(pdict_key, {0, 0})
+
+        prev_chars = if prev_block_idx == last_idx, do: prev_chars, else: 0
+
+        Enum.map(blocks, fn {block, idx} ->
+          html = render_block(block, mdex_opts)
+
+          if idx == last_idx do
+            {animated, new_chars} =
+              Animate.animate_words(html, prev_chars, animation: assigns.animate)
+
+            Process.put(pdict_key, {last_idx, new_chars})
+            {idx, animated, true}
+          else
+            {idx, html, false}
+          end
+        end)
+      else
+        Process.delete({__MODULE__, assigns.id})
+
+        Enum.map(blocks, fn {block, idx} ->
+          {idx, render_block(block, mdex_opts), idx == last_idx}
+        end)
+      end
 
     assigns =
       assigns
