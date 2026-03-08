@@ -108,27 +108,25 @@ defmodule PhoenixStreamdown.Animate do
 
   defp wrap_words(text, state) do
     words = Regex.split(~r/(\s+)/, text, include_captures: true, trim: true)
-
-    {spans, state} =
-      Enum.map_reduce(words, state, fn word, state ->
-        word_len = String.length(word)
-
-        if Regex.match?(@whitespace_re, String.first(word) || "") and
-             String.trim(word) == "" do
-          state = %{state | char_count: state.char_count + word_len}
-          {word, state}
-        else
-          skip? = state.prev_count > 0 and state.char_count < state.prev_count
-          dur = if skip?, do: 0, else: state.duration
-          state = %{state | char_count: state.char_count + word_len}
-
-          span =
-            "<span data-psd-animate style='--psd-animation:psd-#{state.animation};--psd-dur:#{dur}ms;--psd-easing:#{state.easing}'>#{word}</span>"
-
-          {span, state}
-        end
-      end)
-
+    {spans, state} = Enum.map_reduce(words, state, &wrap_word/2)
     {IO.iodata_to_binary(spans), state}
   end
+
+  defp wrap_word(word, state) do
+    word_len = String.length(word)
+
+    if whitespace_only?(word) do
+      {word, %{state | char_count: state.char_count + word_len}}
+    else
+      dur = if state.prev_count > 0 and state.char_count < state.prev_count, do: 0, else: state.duration
+
+      span =
+        "<span data-psd-animate style='--psd-animation:psd-#{state.animation};--psd-dur:#{dur}ms;--psd-easing:#{state.easing}'>#{word}</span>"
+
+      {span, %{state | char_count: state.char_count + word_len}}
+    end
+  end
+
+  defp whitespace_only?(""), do: true
+  defp whitespace_only?(s), do: Regex.match?(@whitespace_re, String.first(s)) and String.trim(s) == ""
 end

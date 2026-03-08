@@ -11,6 +11,7 @@ defmodule PhoenixStreamdown.MixProject do
       elixir: "~> 1.16",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      aliases: aliases(),
       name: "PhoenixStreamdown",
       description: "Streaming markdown renderer for Phoenix LiveView, optimized for LLM output",
       package: package(),
@@ -30,6 +31,21 @@ defmodule PhoenixStreamdown.MixProject do
     ]
   end
 
+  def cli do
+    [preferred_envs: [ci: :test]]
+  end
+
+  defp aliases do
+    [
+      ci: [
+        "compile --warnings-as-errors",
+        "test",
+        "credo --strict",
+        "dialyzer"
+      ]
+    ]
+  end
+
   defp deps do
     [
       {:phoenix_live_view, "~> 1.0"},
@@ -44,7 +60,7 @@ defmodule PhoenixStreamdown.MixProject do
     [
       licenses: ["MIT"],
       links: %{"GitHub" => @source_url, "Changelog" => "#{@source_url}/blob/main/CHANGELOG.md"},
-      files: ~w(lib .formatter.exs mix.exs README.md LICENSE CHANGELOG.md)
+      files: ~w(lib priv/static .formatter.exs mix.exs README.md LICENSE CHANGELOG.md)
     ]
   end
 

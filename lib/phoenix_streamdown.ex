@@ -171,30 +171,10 @@ defmodule PhoenixStreamdown do
 
     rendered_blocks =
       if animate? do
-        pdict_key = {__MODULE__, assigns.id}
-        {prev_block_idx, prev_chars} = Process.get(pdict_key, {0, 0})
-
-        prev_chars = if prev_block_idx == last_idx, do: prev_chars, else: 0
-
-        Enum.map(blocks, fn {block, idx} ->
-          html = render_block(block, mdex_opts)
-
-          if idx == last_idx do
-            {animated, new_chars} =
-              Animate.animate_words(html, prev_chars, animation: assigns.animate)
-
-            Process.put(pdict_key, {last_idx, new_chars})
-            {idx, animated, true}
-          else
-            {idx, html, false}
-          end
-        end)
+        render_animated_blocks(blocks, mdex_opts, last_idx, assigns.id, assigns.animate)
       else
         Process.delete({__MODULE__, assigns.id})
-
-        Enum.map(blocks, fn {block, idx} ->
-          {idx, render_block(block, mdex_opts), idx == last_idx}
-        end)
+        Enum.map(blocks, fn {block, idx} -> {idx, render_block(block, mdex_opts), idx == last_idx} end)
       end
 
     assigns =
@@ -214,6 +194,24 @@ defmodule PhoenixStreamdown do
       </div>
     </div>
     """
+  end
+
+  defp render_animated_blocks(blocks, mdex_opts, last_idx, id, animation) do
+    pdict_key = {__MODULE__, id}
+    {prev_block_idx, prev_chars} = Process.get(pdict_key, {0, 0})
+    prev_chars = if prev_block_idx == last_idx, do: prev_chars, else: 0
+
+    Enum.map(blocks, fn {block, idx} ->
+      html = render_block(block, mdex_opts)
+
+      if idx == last_idx do
+        {animated, new_chars} = Animate.animate_words(html, prev_chars, animation: animation)
+        Process.put(pdict_key, {last_idx, new_chars})
+        {idx, animated, true}
+      else
+        {idx, html, false}
+      end
+    end)
   end
 
   defp build_mdex_opts(user_opts, theme) do
