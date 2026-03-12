@@ -169,18 +169,28 @@ defmodule PhoenixStreamdown do
     last_idx = length(blocks) - 1
     animate? = assigns.streaming and is_binary(assigns.animate) and assigns.animate != ""
 
+    # Track which block was "last" on the previous render so we can
+    # give transitioning blocks one final update before freezing them.
+    last_idx_key = {__MODULE__, :last_idx, assigns.id}
+    prev_last_idx = Process.get(last_idx_key)
+    Process.put(last_idx_key, last_idx)
+
     rendered_blocks =
       if animate? do
         render_animated_blocks(blocks, mdex_opts, last_idx, assigns.id, assigns.animate)
       else
         Process.delete({__MODULE__, assigns.id})
-        Enum.map(blocks, fn {block, idx} -> {idx, render_block(block, mdex_opts), idx == last_idx} end)
+
+        Enum.map(blocks, fn {block, idx} ->
+          {idx, render_block(block, mdex_opts), idx == last_idx}
+        end)
       end
 
     assigns =
       assigns
       |> assign(:rendered_blocks, rendered_blocks)
       |> assign(:last_idx, last_idx)
+      |> assign(:prev_last_idx, prev_last_idx)
 
     ~H"""
     <div class={["phoenix-streamdown", @class]} id={@id}>
@@ -188,13 +198,25 @@ defmodule PhoenixStreamdown do
         :for={{idx, html, is_last} <- @rendered_blocks}
         id={"#{@id}-block-#{idx}"}
         class={@block_class}
-        phx-update={unless(is_last and @streaming, do: "ignore")}
+        phx-update={block_update(is_last, @streaming, idx, @prev_last_idx)}
       >
         {raw(html)}
       </div>
     </div>
     """
   end
+
+  # The last block during streaming is always live (no phx-update="ignore").
+  defp block_update(true, true, _idx, _prev_last_idx), do: nil
+
+  # A block that just transitioned from "last" to "not last" needs one
+  # final DOM update before being frozen — otherwise its content is lost.
+  defp block_update(false, true, idx, prev_last_idx)
+       when is_integer(prev_last_idx) and idx >= prev_last_idx,
+       do: nil
+
+  # All other blocks are frozen.
+  defp block_update(_is_last, _streaming, _idx, _prev_last_idx), do: "ignore"
 
   defp render_animated_blocks(blocks, mdex_opts, last_idx, id, animation) do
     pdict_key = {__MODULE__, id}
