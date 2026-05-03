@@ -100,7 +100,7 @@ defmodule PhoenixStreamdown do
 
   use Phoenix.Component
 
-  import Phoenix.HTML, only: [raw: 1]
+  import Phoenix.HTML, only: [raw: 1, safe_to_string: 1]
 
   alias PhoenixStreamdown.Animate
   alias PhoenixStreamdown.Blocks
@@ -272,6 +272,6 @@ defmodule PhoenixStreamdown do
   defp render_block(block, mdex_opts) do
     MDEx.to_html!(block, mdex_opts)
   rescue
-    _ -> "<p>#{Phoenix.HTML.html_escape(block)}</p>"
+    _ -> "<p>#{block |> Phoenix.HTML.html_escape() |> safe_to_string()}</p>"
   end
 end
