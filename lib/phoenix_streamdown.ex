@@ -151,6 +151,7 @@ defmodule PhoenixStreamdown do
   attr :mdex_opts, :list, default: []
 
   def markdown(assigns) do
+    explicit_id? = Map.has_key?(assigns, :id)
     assigns = assign_new(assigns, :id, fn -> "psd-#{System.unique_integer([:positive])}" end)
 
     completed =
@@ -169,11 +170,7 @@ defmodule PhoenixStreamdown do
     last_idx = length(blocks) - 1
     animate? = assigns.streaming and is_binary(assigns.animate) and assigns.animate != ""
 
-    # Track which block was "last" on the previous render so we can
-    # give transitioning blocks one final update before freezing them.
-    last_idx_key = {__MODULE__, :last_idx, assigns.id}
-    prev_last_idx = Process.get(last_idx_key)
-    Process.put(last_idx_key, last_idx)
+    prev_last_idx = track_previous_last_idx(assigns.id, last_idx, assigns.streaming, explicit_id?)
 
     rendered_blocks =
       if animate? do
@@ -205,6 +202,20 @@ defmodule PhoenixStreamdown do
     </div>
     """
   end
+
+  defp track_previous_last_idx(id, last_idx, true, true) do
+    key = {__MODULE__, :last_idx, id}
+    previous = Process.get(key)
+    Process.put(key, last_idx)
+    previous
+  end
+
+  defp track_previous_last_idx(id, _last_idx, false, true) do
+    Process.delete({__MODULE__, :last_idx, id})
+    nil
+  end
+
+  defp track_previous_last_idx(_id, _last_idx, _streaming, false), do: nil
 
   # The last block during streaming is always live (no phx-update="ignore").
   defp block_update(true, true, _idx, _prev_last_idx), do: nil
