@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-beta.4
+
+### Fixes
+
+- Fix content loss when a streamed block transitions from active to frozen in a batched LiveView render
+- Clean up transition tracking state when explicit-id streams finish
+- Avoid transition tracking for generated IDs
+- Fix fallback render warning
+
 ## 1.0.0-beta.3
 
 ### Features

@@ -118,7 +118,10 @@ defmodule PhoenixStreamdown.Animate do
     if whitespace_only?(word) do
       {word, %{state | char_count: state.char_count + word_len}}
     else
-      dur = if state.prev_count > 0 and state.char_count < state.prev_count, do: 0, else: state.duration
+      dur =
+        if state.prev_count > 0 and state.char_count < state.prev_count,
+          do: 0,
+          else: state.duration
 
       span =
         "<span data-psd-animate style='--psd-animation:psd-#{state.animation};--psd-dur:#{dur}ms;--psd-easing:#{state.easing}'>#{word}</span>"
@@ -128,5 +131,7 @@ defmodule PhoenixStreamdown.Animate do
   end
 
   defp whitespace_only?(""), do: true
-  defp whitespace_only?(s), do: Regex.match?(@whitespace_re, String.first(s)) and String.trim(s) == ""
+
+  defp whitespace_only?(s),
+    do: Regex.match?(@whitespace_re, String.first(s)) and String.trim(s) == ""
 end
