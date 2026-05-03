@@ -165,4 +165,109 @@ defmodule PhoenixStreamdownTest do
       assert html =~ "<del>"
     end
   end
+
+  describe "block transition during streaming" do
+    test "previously-last block is not frozen on the render where new block appears" do
+      id = "test-transition"
+
+      # Render 1: single block, block-0 is last
+      _html1 =
+        render_component(&PhoenixStreamdown.markdown/1, %{
+          content: "Hello world",
+          streaming: true,
+          id: id
+        })
+
+      # Render 2: content grew AND a new block appeared (simulates batched deltas)
+      # Block-0's content changed from "Hello world" to "Hello world extended"
+      # Block-1 is now the last block
+      html2 =
+        render_component(&PhoenixStreamdown.markdown/1, %{
+          content: "Hello world extended\n\nSecond paragraph",
+          streaming: true,
+          id: id
+        })
+
+      # Block-0 just transitioned from last to not-last.
+      # It MUST NOT have phx-update="ignore" on this render, because
+      # its content changed and the client needs to receive the update.
+      [block_0_div] = Regex.run(~r/<div[^>]*id="#{id}-block-0"[^>]*>/, html2)
+
+      refute block_0_div =~ ~s(phx-update="ignore"),
+             "Block 0 just transitioned from last to not-last; " <>
+               "it needs one final update before being frozen"
+    end
+
+    test "does not track generated ids in the process dictionary" do
+      before_keys = transition_tracking_keys()
+
+      for content <- ["Hello", "Hello extended\n\nSecond", "Hello extended\n\nSecond continued"] do
+        render_component(&PhoenixStreamdown.markdown/1, %{
+          content: content,
+          streaming: true
+        })
+      end
+
+      assert transition_tracking_keys() == before_keys
+    end
+
+    test "cleans up transition tracking when explicit-id stream finishes" do
+      id = "test-cleanup"
+
+      render_component(&PhoenixStreamdown.markdown/1, %{
+        content: "Hello",
+        streaming: true,
+        id: id
+      })
+
+      assert {PhoenixStreamdown, :last_idx, id} in transition_tracking_keys()
+
+      render_component(&PhoenixStreamdown.markdown/1, %{
+        content: "Hello",
+        streaming: false,
+        id: id
+      })
+
+      refute {PhoenixStreamdown, :last_idx, id} in transition_tracking_keys()
+    end
+
+    test "block is frozen on the render AFTER it transitions" do
+      id = "test-freeze-after"
+
+      # Render 1: single block
+      _html1 =
+        render_component(&PhoenixStreamdown.markdown/1, %{
+          content: "Hello world",
+          streaming: true,
+          id: id
+        })
+
+      # Render 2: new block appears, block-0 transitions
+      _html2 =
+        render_component(&PhoenixStreamdown.markdown/1, %{
+          content: "Hello world extended\n\nSecond paragraph",
+          streaming: true,
+          id: id
+        })
+
+      # Render 3: same block structure, block-0 should now be frozen
+      html3 =
+        render_component(&PhoenixStreamdown.markdown/1, %{
+          content: "Hello world extended\n\nSecond paragraph continues",
+          streaming: true,
+          id: id
+        })
+
+      [block_0_div] = Regex.run(~r/<div[^>]*id="#{id}-block-0"[^>]*>/, html3)
+
+      assert block_0_div =~ ~s(phx-update="ignore"),
+             "Block 0 should be frozen after its transition render"
+    end
+  end
+
+  defp transition_tracking_keys do
+    Process.get_keys()
+    |> Enum.filter(&match?({PhoenixStreamdown, :last_idx, _id}, &1))
+    |> Enum.sort()
+  end
 end

@@ -100,7 +100,7 @@ defmodule PhoenixStreamdown do
 
   use Phoenix.Component
 
-  import Phoenix.HTML, only: [raw: 1]
+  import Phoenix.HTML, only: [raw: 1, safe_to_string: 1]
 
   alias PhoenixStreamdown.Animate
   alias PhoenixStreamdown.Blocks
@@ -151,6 +151,7 @@ defmodule PhoenixStreamdown do
   attr :mdex_opts, :list, default: []
 
   def markdown(assigns) do
+    explicit_id? = Map.has_key?(assigns, :id)
     assigns = assign_new(assigns, :id, fn -> "psd-#{System.unique_integer([:positive])}" end)
 
     completed =
@@ -169,18 +170,24 @@ defmodule PhoenixStreamdown do
     last_idx = length(blocks) - 1
     animate? = assigns.streaming and is_binary(assigns.animate) and assigns.animate != ""
 
+    prev_last_idx = track_previous_last_idx(assigns.id, last_idx, assigns.streaming, explicit_id?)
+
     rendered_blocks =
       if animate? do
         render_animated_blocks(blocks, mdex_opts, last_idx, assigns.id, assigns.animate)
       else
         Process.delete({__MODULE__, assigns.id})
-        Enum.map(blocks, fn {block, idx} -> {idx, render_block(block, mdex_opts), idx == last_idx} end)
+
+        Enum.map(blocks, fn {block, idx} ->
+          {idx, render_block(block, mdex_opts), idx == last_idx}
+        end)
       end
 
     assigns =
       assigns
       |> assign(:rendered_blocks, rendered_blocks)
       |> assign(:last_idx, last_idx)
+      |> assign(:prev_last_idx, prev_last_idx)
 
     ~H"""
     <div class={["phoenix-streamdown", @class]} id={@id}>
@@ -188,13 +195,39 @@ defmodule PhoenixStreamdown do
         :for={{idx, html, is_last} <- @rendered_blocks}
         id={"#{@id}-block-#{idx}"}
         class={@block_class}
-        phx-update={unless(is_last and @streaming, do: "ignore")}
+        phx-update={block_update(is_last, @streaming, idx, @prev_last_idx)}
       >
         {raw(html)}
       </div>
     </div>
     """
   end
+
+  defp track_previous_last_idx(id, last_idx, true, true) do
+    key = {__MODULE__, :last_idx, id}
+    previous = Process.get(key)
+    Process.put(key, last_idx)
+    previous
+  end
+
+  defp track_previous_last_idx(id, _last_idx, false, true) do
+    Process.delete({__MODULE__, :last_idx, id})
+    nil
+  end
+
+  defp track_previous_last_idx(_id, _last_idx, _streaming, false), do: nil
+
+  # The last block during streaming is always live (no phx-update="ignore").
+  defp block_update(true, true, _idx, _prev_last_idx), do: nil
+
+  # A block that just transitioned from "last" to "not last" needs one
+  # final DOM update before being frozen — otherwise its content is lost.
+  defp block_update(false, true, idx, prev_last_idx)
+       when is_integer(prev_last_idx) and idx >= prev_last_idx,
+       do: nil
+
+  # All other blocks are frozen.
+  defp block_update(_is_last, _streaming, _idx, _prev_last_idx), do: "ignore"
 
   defp render_animated_blocks(blocks, mdex_opts, last_idx, id, animation) do
     pdict_key = {__MODULE__, id}
@@ -239,6 +272,6 @@ defmodule PhoenixStreamdown do
   defp render_block(block, mdex_opts) do
     MDEx.to_html!(block, mdex_opts)
   rescue
-    _ -> "<p>#{Phoenix.HTML.html_escape(block)}</p>"
+    _ -> "<p>#{block |> Phoenix.HTML.html_escape() |> safe_to_string()}</p>"
   end
 end
