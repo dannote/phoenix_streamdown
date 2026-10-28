@@ -19,17 +19,17 @@ use PhoenixStreamdown
 ```
 
 ```heex
-<.markdown content={@response} streaming={@streaming?} />
+<.markdown content={@response} streaming={@streaming?} id={"msg-#{@message_id}"} />
 ```
 
-That's it. Pass `content` as a markdown string, set `streaming` to `true` while tokens are arriving. Completed blocks are frozen with `phx-update="ignore"` — only the last block re-renders on each token.
+That's it. Pass `content` as a markdown string, set `streaming` to `true` while tokens are arriving. Completed blocks are frozen with `phx-update="ignore"` — only the last block re-renders on each token. The `id` has to stay the same across renders, otherwise LiveView cannot reuse the blocks it already rendered.
 
 ### Streaming animations
 
 Add word-level fade-in like [Vercel's Streamdown](https://github.com/vercel/streamdown):
 
 ```heex
-<.markdown content={@response} streaming animate="fadeIn" />
+<.markdown content={@response} streaming animate="fadeIn" id={"msg-#{@message_id}"} />
 ```
 
 Include the CSS (`fadeIn`, `blurIn`, `slideUp`):

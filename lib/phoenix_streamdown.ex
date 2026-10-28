@@ -9,11 +9,15 @@ defmodule PhoenixStreamdown do
 
       use PhoenixStreamdown
 
-      <.markdown content={@response} streaming={@streaming?} />
+      <.markdown content={@response} streaming={@streaming?} id={"msg-\#{@message_id}"} />
 
   Or without importing:
 
-      <PhoenixStreamdown.markdown content={@response} streaming={@streaming?} />
+      <PhoenixStreamdown.markdown
+        content={@response}
+        streaming={@streaming?}
+        id={"msg-\#{@message_id}"}
+      />
 
   ## How it works
 
@@ -55,12 +59,20 @@ defmodule PhoenixStreamdown do
 
   ### Stable IDs
 
-  Each component auto-generates a unique `id`. For completed messages in a list,
-  pass a stable ID to preserve frozen blocks across re-renders:
+  `id` is required when `streaming: true`, and it has to stay the same across renders.
+  LiveView matches nodes by DOM id, so an id that changes per render makes
+  `phx-update="ignore"` a no-op and replaces the whole markdown subtree on every chunk:
 
-      <.markdown content={msg.content} id={"msg-\#{msg.id}"} />
+      <.markdown content={@response} streaming id={"msg-\#{@message.id}"} />
 
-  The streaming component doesn't need an explicit `id` — it's ephemeral.
+  When not streaming, an id is generated for you.
+
+  ## What "frozen" costs
+
+  A completed block is rendered once and then frozen with `phx-update="ignore"`, so the
+  client keeps the DOM it already has. If `Remend` guessed wrong about incomplete syntax,
+  that rendering sticks until the block gets a new id. Fine for append-only LLM output,
+  worth knowing when content can be corrected after the fact.
 
   ### MDEx options
 
@@ -87,7 +99,7 @@ defmodule PhoenixStreamdown do
 
         def render(assigns) do
           ~H\"\"\"
-          <.markdown content={@response} streaming={@streaming?} />
+          <.markdown content={@response} streaming={@streaming?} id={"msg-\#{@message_id}"} />
           \"\"\"
         end
       end
@@ -101,6 +113,8 @@ defmodule PhoenixStreamdown do
   use Phoenix.Component
 
   import Phoenix.HTML, only: [raw: 1, safe_to_string: 1]
+
+  require Logger
 
   alias PhoenixStreamdown.Animate
   alias PhoenixStreamdown.Blocks
@@ -125,7 +139,7 @@ defmodule PhoenixStreamdown do
     * `animate` — animation type for streaming: `"fadeIn"`, `"blurIn"`, `"slideUp"`, or `nil` to disable
     * `class` — CSS class for the wrapper `<div>`
     * `block_class` — CSS class for each block `<div>`
-    * `id` — unique ID prefix (auto-generated; pass explicitly for stable IDs across re-renders)
+    * `id` — id prefix; required when `streaming: true`, generated otherwise
     * `theme` — syntax highlighting theme name (default: `"onedark"`)
     * `mdex_opts` — options passed to `MDEx.to_html!/2` (merged with defaults)
 
@@ -136,6 +150,7 @@ defmodule PhoenixStreamdown do
       <PhoenixStreamdown.markdown
         content={@response}
         streaming
+        id={"msg-\#{@message.id}"}
         animate="blurIn"
         class="prose"
         theme="github_dark"
@@ -151,8 +166,7 @@ defmodule PhoenixStreamdown do
   attr :mdex_opts, :list, default: []
 
   def markdown(assigns) do
-    explicit_id? = Map.has_key?(assigns, :id)
-    assigns = assign_new(assigns, :id, fn -> "psd-#{System.unique_integer([:positive])}" end)
+    assigns = assign_stable_id(assigns)
 
     completed =
       if assigns.streaming do
@@ -170,7 +184,7 @@ defmodule PhoenixStreamdown do
     last_idx = length(blocks) - 1
     animate? = assigns.streaming and is_binary(assigns.animate) and assigns.animate != ""
 
-    prev_last_idx = track_previous_last_idx(assigns.id, last_idx, assigns.streaming, explicit_id?)
+    prev_last_idx = track_previous_last_idx(assigns.id, last_idx, assigns.streaming)
 
     rendered_blocks =
       if animate? do
@@ -203,19 +217,40 @@ defmodule PhoenixStreamdown do
     """
   end
 
-  defp track_previous_last_idx(id, last_idx, true, true) do
+  defp assign_stable_id(assigns) do
+    cond do
+      is_binary(assigns[:id]) ->
+        assigns
+
+      assigns.streaming ->
+        raise ArgumentError, """
+        <.markdown> requires an explicit `id` when `streaming: true`.
+
+        A generated id changes on every render, so LiveView cannot reuse the existing
+        blocks: `phx-update="ignore"` stops working and the whole markdown subtree is
+        replaced on every chunk.
+
+        Pass a value that is stable across renders, for example:
+
+            <.markdown content={@response} streaming id={"msg-\#{@message.id}"} />
+        """
+
+      true ->
+        assign_new(assigns, :id, fn -> "psd-#{System.unique_integer([:positive])}" end)
+    end
+  end
+
+  defp track_previous_last_idx(id, last_idx, true) do
     key = {__MODULE__, :last_idx, id}
     previous = Process.get(key)
     Process.put(key, last_idx)
     previous
   end
 
-  defp track_previous_last_idx(id, _last_idx, false, true) do
+  defp track_previous_last_idx(id, _last_idx, false) do
     Process.delete({__MODULE__, :last_idx, id})
     nil
   end
-
-  defp track_previous_last_idx(_id, _last_idx, _streaming, false), do: nil
 
   # The last block during streaming is always live (no phx-update="ignore").
   defp block_update(true, true, _idx, _prev_last_idx), do: nil
@@ -272,6 +307,25 @@ defmodule PhoenixStreamdown do
   defp render_block(block, mdex_opts) do
     MDEx.to_html!(block, mdex_opts)
   rescue
-    _ -> "<p>#{block |> Phoenix.HTML.html_escape() |> safe_to_string()}</p>"
+    exception ->
+      log_render_error(exception, block)
+      "<p>#{block |> Phoenix.HTML.html_escape() |> safe_to_string()}</p>"
+  end
+
+  defp log_render_error(exception, block) do
+    signature = {exception.__struct__, Exception.message(exception)}
+    key = {__MODULE__, :logged_render_errors}
+    logged = Process.get(key, MapSet.new())
+
+    unless MapSet.member?(logged, signature) do
+      Process.put(key, MapSet.put(logged, signature))
+
+      Logger.error(
+        "PhoenixStreamdown could not render a markdown block with MDEx and fell back " <>
+          "to escaped plain text (#{inspect(exception.__struct__)}: " <>
+          "#{Exception.message(exception)}). Block starts with: " <>
+          inspect(String.slice(block, 0, 200))
+      )
+    end
   end
 end

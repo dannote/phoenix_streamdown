@@ -2,6 +2,7 @@ defmodule PhoenixStreamdownTest do
   use ExUnit.Case, async: true
   use PhoenixStreamdown
 
+  import ExUnit.CaptureLog
   import Phoenix.LiveViewTest
 
   describe "use PhoenixStreamdown" do
@@ -29,7 +30,8 @@ defmodule PhoenixStreamdownTest do
       html =
         render_component(&PhoenixStreamdown.markdown/1, %{
           content: "**incomplete bold",
-          streaming: true
+          streaming: true,
+          id: "streaming"
         })
 
       assert html =~ "<strong>"
@@ -83,7 +85,8 @@ defmodule PhoenixStreamdownTest do
       html =
         render_component(&PhoenixStreamdown.markdown/1, %{
           content: "# Title\n\nStill typing",
-          streaming: true
+          streaming: true,
+          id: "ignore-check"
         })
 
       assert html =~ ~s(phx-update="ignore")
@@ -93,14 +96,15 @@ defmodule PhoenixStreamdownTest do
       html =
         render_component(&PhoenixStreamdown.markdown/1, %{
           content: "```elixir\nIO.puts(:hello",
-          streaming: true
+          streaming: true,
+          id: "code-stream"
         })
 
       assert html =~ "<code"
       assert html =~ "language-elixir"
     end
 
-    test "auto-generates unique id" do
+    test "auto-generates an id when not streaming" do
       html1 =
         render_component(&PhoenixStreamdown.markdown/1, %{
           content: "Hello"
@@ -114,6 +118,35 @@ defmodule PhoenixStreamdownTest do
       [_, id1] = Regex.run(~r/id="(psd-\d+)"/, html1)
       [_, id2] = Regex.run(~r/id="(psd-\d+)"/, html2)
       assert id1 != id2
+    end
+
+    test "raises when streaming without an explicit id" do
+      assert_raise ArgumentError, ~r/requires an explicit `id`/, fn ->
+        render_component(&PhoenixStreamdown.markdown/1, %{
+          content: "Hello",
+          streaming: true
+        })
+      end
+    end
+
+    test "keeps the id stable across streaming renders" do
+      html1 =
+        render_component(&PhoenixStreamdown.markdown/1, %{
+          content: "Hello",
+          streaming: true,
+          id: "stable"
+        })
+
+      html2 =
+        render_component(&PhoenixStreamdown.markdown/1, %{
+          content: "Hello\n\nWorld",
+          streaming: true,
+          id: "stable"
+        })
+
+      assert html1 =~ ~s(id="stable")
+      assert html2 =~ ~s(id="stable")
+      assert html2 =~ ~s(id="stable-block-1")
     end
 
     test "accepts explicit id prefix" do
@@ -198,19 +231,6 @@ defmodule PhoenixStreamdownTest do
                "it needs one final update before being frozen"
     end
 
-    test "does not track generated ids in the process dictionary" do
-      before_keys = transition_tracking_keys()
-
-      for content <- ["Hello", "Hello extended\n\nSecond", "Hello extended\n\nSecond continued"] do
-        render_component(&PhoenixStreamdown.markdown/1, %{
-          content: content,
-          streaming: true
-        })
-      end
-
-      assert transition_tracking_keys() == before_keys
-    end
-
     test "cleans up transition tracking when explicit-id stream finishes" do
       id = "test-cleanup"
 
@@ -262,6 +282,41 @@ defmodule PhoenixStreamdownTest do
 
       assert block_0_div =~ ~s(phx-update="ignore"),
              "Block 0 should be frozen after its transition render"
+    end
+  end
+
+  describe "render failures" do
+    test "logs the error and falls back to escaped text when MDEx raises" do
+      log =
+        capture_log(fn ->
+          html =
+            render_component(&PhoenixStreamdown.markdown/1, %{
+              content: "**bold** <script>alert(1)</script>",
+              mdex_opts: [extension: [table: :invalid]]
+            })
+
+          refute html =~ "<strong>"
+          assert html =~ "**bold**"
+          assert html =~ "&lt;script&gt;"
+        end)
+
+      assert log =~ "PhoenixStreamdown"
+      assert log =~ "NimbleOptions.ValidationError"
+    end
+
+    test "logs a repeated failure only once per process" do
+      render_with_bad_opts = fn ->
+        render_component(&PhoenixStreamdown.markdown/1, %{
+          content: "first",
+          mdex_opts: [extension: [table: :invalid]]
+        })
+      end
+
+      first_log = capture_log(render_with_bad_opts)
+      second_log = capture_log(render_with_bad_opts)
+
+      assert first_log =~ "NimbleOptions.ValidationError"
+      assert second_log == ""
     end
   end
 

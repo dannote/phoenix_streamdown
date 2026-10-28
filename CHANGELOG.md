@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes
+
+- `id` is required when `streaming: true`. A generated id changed on every render, so LiveView could not match the existing blocks: `phx-update="ignore"` never applied and the whole markdown subtree was replaced on every chunk. `<.markdown>` now raises with instructions instead of silently losing the optimisation.
+
+### Fixes
+
+- Log the MDEx exception (once per distinct failure and process) instead of silently rendering escaped plain text when a block fails to render
+- Keep loose lists, nested lists, list continuation paragraphs and indented code blocks in a single block, so they no longer render as N separate lists or code blocks
+- Tighten the `mdex` requirement to `~> 0.11.0`; 0.12 and newer removed the bundled Lumis highlighter, so the default options raise `Lumis is not enabled.` there
+
 ## 1.0.0-beta.4
 
 ### Fixes
