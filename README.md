@@ -12,6 +12,8 @@ def deps do
 end
 ```
 
+Syntax highlighting is opt-in for MDEx 0.13 and newer. Run `mix phoenix_streamdown.install` to add the Lumis config and a parser package, or skip it and code blocks render unhighlighted.
+
 ## Usage
 
 ```elixir
@@ -19,17 +21,17 @@ use PhoenixStreamdown
 ```
 
 ```heex
-<.markdown content={@response} streaming={@streaming?} />
+<.markdown content={@response} streaming={@streaming?} id={"msg-#{@message_id}"} />
 ```
 
-That's it. Pass `content` as a markdown string, set `streaming` to `true` while tokens are arriving. Completed blocks are frozen with `phx-update="ignore"` — only the last block re-renders on each token.
+That's it. Pass `content` as a markdown string, set `streaming` to `true` while tokens are arriving. Completed blocks are frozen with `phx-update="ignore"` — only the last block re-renders on each token. The `id` has to stay the same across renders, otherwise LiveView cannot reuse the blocks it already rendered.
 
 ### Streaming animations
 
 Add word-level fade-in like [Vercel's Streamdown](https://github.com/vercel/streamdown):
 
 ```heex
-<.markdown content={@response} streaming animate="fadeIn" />
+<.markdown content={@response} streaming animate="fadeIn" id={"msg-#{@message_id}"} />
 ```
 
 Include the CSS (`fadeIn`, `blurIn`, `slideUp`):
@@ -40,12 +42,12 @@ Include the CSS (`fadeIn`, `blurIn`, `slideUp`):
 
 ## How it works
 
-1. **Remend** — auto-closes incomplete syntax (`**bold` → `**bold**`, unclosed fences, partial links)
+1. **MDEx `auto_close`** — closes incomplete syntax while it streams (`**bold`, unclosed fences, partial links, tables)
 2. **Blocks** — splits into independent blocks so earlier ones are stable
 3. **MDEx** — renders each block to HTML server-side (Rust-backed)
 4. **LiveView** — diffs only the active block, skips the rest
 
-On a 56-block document, this is **~7x less server work** and **~460x smaller diffs** per token compared to re-rendering the full document each time.
+On a 56-block document, this is **~7x less server work** and **~460x smaller diffs** per token compared to re-rendering the full document each time. Run `mix run bench/render_bench.exs` to measure it on your machine.
 
 ## Example
 

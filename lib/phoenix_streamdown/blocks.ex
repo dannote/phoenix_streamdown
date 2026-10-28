@@ -19,6 +19,8 @@ defmodule PhoenixStreamdown.Blocks do
     |> merge_code_fences()
     |> merge_math()
     |> merge_html()
+    |> merge_lists()
+    |> merge_indented_code()
     |> Enum.reject(&empty?/1)
   end
 
@@ -157,7 +159,93 @@ defmodule PhoenixStreamdown.Blocks do
     Regex.match?(~r/<\/#{Regex.escape(tag)}\s*>/i, block)
   end
 
+  # --- Lists ---
+
+  # A list item marker at the start of a line. Indentation above three spaces
+  # is an indented code block, not a list item.
+  @list_item ~r/\A(?<indent> {0,3})(?<marker>[-*+]|\d{1,9}[.)])(?<spacing> +)/
+
+  defp merge_lists(blocks) do
+    merge_runs(blocks, &continues_list?/2)
+  end
+
+  defp continues_list?(block, acc) do
+    case list_item(List.last(acc)) do
+      nil ->
+        false
+
+      {kind, _indent, content_indent} ->
+        case list_item(block) do
+          {^kind, _indent, _content_indent} -> true
+          {_kind, next_indent, _content_indent} -> next_indent >= content_indent
+          nil -> indented_at_least?(block, content_indent)
+        end
+    end
+  end
+
+  defp list_item(block) do
+    case Regex.run(@list_item, first_line(block), capture: :all_but_first) do
+      [indent, marker, spacing] ->
+        kind = if Regex.match?(~r/\A\d/, marker), do: :ordered, else: :bullet
+        padding = if byte_size(spacing) > 4, do: 1, else: byte_size(spacing)
+        indent_width = indentation(indent)
+        {kind, indent_width, indent_width + byte_size(marker) + padding}
+
+      nil ->
+        nil
+    end
+  end
+
+  # --- Indented code blocks ---
+
+  defp merge_indented_code(blocks) do
+    merge_runs(blocks, fn block, acc ->
+      indented_code?(block) and indented_code?(List.last(acc))
+    end)
+  end
+
+  defp indented_code?(block), do: indented_at_least?(block, 4)
+
+  defp indented_at_least?(block, min_indent) do
+    line = first_line(block)
+    line != "" and indentation(line) >= min_indent
+  end
+
+  # Leading whitespace width in columns, with tab stops every four columns.
+  defp indentation(line) do
+    line
+    |> String.graphemes()
+    |> Enum.reduce_while(0, fn
+      " ", width -> {:cont, width + 1}
+      "\t", width -> {:cont, width + 4 - rem(width, 4)}
+      _glyph, width -> {:halt, width}
+    end)
+  end
+
   # --- Helpers ---
+
+  # Merges runs of blocks while `continues?` says the next block belongs to the
+  # construct the run started with.
+  defp merge_runs(blocks, continues?) do
+    {merged, acc} = Enum.reduce(blocks, {[], []}, &reduce_run(&1, &2, continues?))
+    flush_acc(merged, acc)
+  end
+
+  defp reduce_run(block, {merged, []}, _continues?), do: {merged, [block]}
+
+  defp reduce_run(block, {merged, acc}, continues?) do
+    if continues?.(block, acc) do
+      {merged, [block | acc]}
+    else
+      {merged ++ [join_acc(acc)], [block]}
+    end
+  end
+
+  defp first_line(block) do
+    block
+    |> String.split("\n", parts: 2)
+    |> hd()
+  end
 
   defp join_acc(acc), do: acc |> Enum.reverse() |> Enum.join("\n\n")
 
