@@ -18,10 +18,7 @@ defmodule PhoenixStreamdown.MixProject do
       docs: docs(),
       source_url: @source_url,
       homepage_url: @source_url,
-      dialyzer: [
-        plt_add_apps: [:ex_unit],
-        plt_file: {:no_warn, "priv/plts/project.plt"}
-      ]
+      dialyzer: [plt_add_apps: [:ex_unit, :mix], plt_file: {:no_warn, "priv/plts/project.plt"}]
     ]
   end
 
@@ -39,20 +36,28 @@ defmodule PhoenixStreamdown.MixProject do
     [
       ci: [
         "compile --warnings-as-errors",
+        "format --check-formatted",
         "test",
         "credo --strict",
-        "dialyzer"
+        "dialyzer",
+        "ex_dna --max-clones 0",
+        "reach.check --arch --smells"
       ]
     ]
   end
 
   defp deps do
     [
+      {:ex_slop, "~> 0.4", only: [:dev, :test], runtime: false},
+      {:reach, "~> 2.0", only: [:dev, :test], runtime: false},
+      {:ex_dna, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:vibe_kit, "~> 0.1", only: [:dev, :test], runtime: false},
       {:phoenix_live_view, "~> 1.0"},
-      {:mdex, "~> 0.11"},
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+      {:mdex, "~> 0.14"},
+      {:lumis_wasm_elixir, "~> 0.26", only: [:dev, :test]},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false},
+      {:credo, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false}
     ]
   end
 

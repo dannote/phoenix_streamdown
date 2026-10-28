@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes
+
+- `id` is required when `streaming: true`. A generated id changed on every render, so LiveView could not match the existing blocks: `phx-update="ignore"` never applied and the whole markdown subtree was replaced on every chunk. `<.markdown>` now raises with instructions instead of silently losing the optimisation.
+- `PhoenixStreamdown.Remend` is gone. MDEx's `auto_close` does the same job in Rust and also completes tables, so the component passes `auto_close: [links: :text, images: :text]` while streaming. Call `MDEx.to_html!/2` with `auto_close: true` if you used `Remend.complete/1` directly, and pass `mdex_opts={[auto_close: false]}` to render the raw source instead.
+- `mdex` is now `~> 0.14`. 0.13 and newer no longer bundle the Lumis highlighter, so syntax highlighting is opt-in: configure `mdex_native` with Lumis and add a parser package to keep it. Without it, code blocks render unhighlighted and one warning is logged; pass `theme={nil}` to turn highlighting off explicitly.
+
+### Changed
+
+- Update `phoenix_live_view` to 1.2 and the dev/test tooling to the latest versions
+- Render a block only when its source or the rendering options changed, so a streamed token re-renders the last block instead of every block. Completed messages in a list keep their rendered HTML until their content changes.
+- Add `mix phoenix_streamdown.install`, which writes the `mdex_native` Lumis config and adds a parser package
+
+### Fixes
+
+- Log the MDEx exception (once per distinct failure and process) instead of silently rendering escaped plain text when a block fails to render
+- Keep loose lists, nested lists, list continuation paragraphs and indented code blocks in a single block, so they no longer render as N separate lists or code blocks
+
 ## 1.0.0-beta.4
 
 ### Fixes
